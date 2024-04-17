@@ -9,7 +9,7 @@ pub fn main() {
     glisten.handler(fn(_conn) { #(Nil, None) }, fn(msg, state, conn) {
       let assert glisten.Packet(_ignore) = msg
       let assert Ok(_) =
-        glisten.send(conn, bytes_builder.from_bit_array(<<"+PONG\r\n":utf8>>))
+        glisten.send(conn, bytes_builder.from_string("+PONG\r\n"))
       actor.continue(state)
     })
     |> glisten.serve(6379)
