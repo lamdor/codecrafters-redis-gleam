@@ -10,7 +10,7 @@
     in {
       devShells = forAllSystems (system: {
         default = pkgs.${system}.mkShellNoCC {
-          packages = with pkgs.${system}; [ gleam erlang rebar3 ];
+          packages = with pkgs.${system}; [ gleam erlang rebar3 redis ];
         };
       });
     };
