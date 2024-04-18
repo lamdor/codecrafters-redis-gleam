@@ -69,3 +69,14 @@ pub fn null_test() {
   // null bulk string
   let assert Ok(resp.Null(Nil)) = resp.decode(bits)
 }
+
+pub fn array_test() {
+  let bits =
+    resp.array([resp.bulk_string("hello"), resp.bulk_string("world")])
+    |> bytes_builder.to_bit_array
+
+  let assert <<"*2\r\n$5\r\nhello\r\n$5\r\nworld\r\n":utf8>> = bits
+
+  let assert Ok(resp.Array([resp.BulkString("hello"), resp.BulkString("world")])) =
+    resp.decode(bits)
+}
