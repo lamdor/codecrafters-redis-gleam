@@ -11,18 +11,25 @@ pub fn main() {
   let assert Ok(_) =
     glisten.handler(fn(_conn) { #(Nil, None) }, fn(msg, state, conn) {
       let assert glisten.Packet(bits) = msg
+
       let resp_byte_builder = case resp.decode(bits) {
         Ok(resp.Array(resps)) -> {
-          let strings = result.unwrap(resp.to_string_list(resps), [])
-          let maybe_cmd = commands.from_string_list(strings)
-          case maybe_cmd {
-            Ok(commands.Ping) -> handle_ping()
-            Ok(commands.Echo(str)) -> handle_echo(str)
-            _ -> resp.simple_error_bytes("ERR unknown command")
+          let handled_cmd = {
+            use strings <- result.try(resp.to_string_list(resps))
+            use cmd <- result.map(commands.from_string_list(strings))
+            case cmd {
+              commands.Ping -> handle_ping()
+              commands.Echo(str) -> handle_echo(str)
+            }
           }
+          result.unwrap(
+            handled_cmd,
+            resp.simple_error_bytes("ERR unknown command"),
+          )
         }
         _ -> resp.simple_error_bytes("ERR Unable to decode")
       }
+
       let assert Ok(_) = glisten.send(conn, resp_byte_builder)
       actor.continue(state)
     })
