@@ -58,3 +58,14 @@ pub fn bulk_string_test() {
   let assert Error(Nil) = resp.decode(<<"$5hello\r\n":utf8>>)
   let assert Error(Nil) = resp.decode(<<"$5\r\nhello":utf8>>)
 }
+
+pub fn null_test() {
+  let bits =
+    resp.null()
+    |> bytes_builder.to_bit_array
+
+  let assert <<"$-1\r\n":utf8>> = bits
+
+  // null bulk string
+  let assert Ok(resp.Null(Nil)) = resp.decode(bits)
+}

@@ -5,13 +5,15 @@ import gleam/result
 import gleam/string
 import gleam/string_builder
 
-const terminator = "\r\n"
+// const terminator_bits = <<"\r\n":utf8>>
+
+const terminator_str = "\r\n"
 
 pub type Resp {
   SimpleString(string: String)
   SimpleError(error_message: String)
   Integer(i: Int)
-  Null
+  Null(Nil)
   BulkString(string: String)
   Array(elements: List(Resp))
 }
@@ -41,17 +43,21 @@ fn decode_integer(bits: BitArray) -> Result(Resp, Nil) {
 
 fn decode_bulk_string(bits: BitArray) -> Result(Resp, Nil) {
   use #(str_length_as_bits, pos) <- result.try(read_until_terminator(bits, 1))
-  use #(str, _) <- result.try(read_until_terminator(bits, pos))
-  use str <- result.try(bit_array.to_string(str))
-
   use str_length <- result.try(result.try(
     bit_array.to_string(str_length_as_bits),
     int.parse,
   ))
+  case str_length {
+    -1 -> Ok(Null(Nil))
+    _ -> {
+      use #(str, _) <- result.try(read_until_terminator(bits, pos))
+      use str <- result.try(bit_array.to_string(str))
 
-  case string.length(str) == str_length {
-    True -> Ok(BulkString(str))
-    False -> Error(Nil)
+      case string.length(str) == str_length {
+        True -> Ok(BulkString(str))
+        False -> Error(Nil)
+      }
+    }
   }
 }
 
@@ -88,7 +94,7 @@ fn read_loop_until_terminator(
 /// Simple strings are encoded as a plus (+) character, followed by a string. The string mustn't contain a CR (\r) or LF (\n) character and is terminated by CRLF (i.e., \r\n).
 /// 
 pub fn simple_string(str: String) -> BytesBuilder {
-  string_builder.from_strings(["+", str, terminator])
+  string_builder.from_strings(["+", str, terminator_str])
   |> bytes_builder.from_string_builder
 }
 
@@ -99,21 +105,25 @@ pub fn bulk_string(str: String) -> BytesBuilder {
     "$",
     string.length(str)
       |> int.to_string,
-    terminator,
+    terminator_str,
     str,
-    terminator,
+    terminator_str,
   ])
   |> bytes_builder.from_string_builder
 }
 
+pub fn null() -> BytesBuilder {
+  bytes_builder.from_string("$-1\r\n")
+}
+
 /// Encode a simple error
 pub fn simple_error(str: String) -> BytesBuilder {
-  string_builder.from_strings(["-", str, terminator])
+  string_builder.from_strings(["-", str, terminator_str])
   |> bytes_builder.from_string_builder
 }
 
 /// Encode an integer
 pub fn integer(i: Int) -> BytesBuilder {
-  string_builder.from_strings([":", int.to_string(i), terminator])
+  string_builder.from_strings([":", int.to_string(i), terminator_str])
   |> bytes_builder.from_string_builder
 }
