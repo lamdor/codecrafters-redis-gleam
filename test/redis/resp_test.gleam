@@ -19,6 +19,29 @@ pub fn simple_error_test() {
   let assert <<"-owwww. something is wrong\r\n":utf8>> = bits
 }
 
+pub fn integer_test() {
+  // positive
+  let bits =
+    resp.integer(123)
+    |> bytes_builder.to_bit_array
+
+  let assert <<":123\r\n":utf8>> = bits
+
+  let assert Ok(resp.Integer(123)) = resp.decode(bits)
+
+  // positive, with sigh
+  let assert Ok(resp.Integer(123)) = resp.decode(<<":+123\r\n":utf8>>)
+
+  // negative
+  let bits =
+    resp.integer(-123)
+    |> bytes_builder.to_bit_array
+
+  let assert <<":-123\r\n":utf8>> = bits
+
+  let assert Ok(resp.Integer(-123)) = resp.decode(bits)
+}
+
 pub fn bulk_string_test() {
   let bits =
     resp.bulk_string("hello")

@@ -22,6 +22,7 @@ pub fn decode(bits: BitArray) -> Result(Resp, Nil) {
   case first_char {
     <<"+":utf8>> -> decode_simple_string(bits)
     <<"$":utf8>> -> decode_bulk_string(bits)
+    <<":":utf8>> -> decode_integer(bits)
     _ -> Error(Nil)
   }
 }
@@ -30,6 +31,12 @@ fn decode_simple_string(bits: BitArray) -> Result(Resp, Nil) {
   use #(rest, _) <- result.try(read_until_terminator(bits, 1))
   use str <- result.map(bit_array.to_string(rest))
   SimpleString(str)
+}
+
+fn decode_integer(bits: BitArray) -> Result(Resp, Nil) {
+  use #(rest, _) <- result.try(read_until_terminator(bits, 1))
+  use i <- result.map(result.try(bit_array.to_string(rest), int.parse))
+  Integer(i)
 }
 
 fn decode_bulk_string(bits: BitArray) -> Result(Resp, Nil) {
@@ -102,5 +109,11 @@ pub fn bulk_string(str: String) -> BytesBuilder {
 /// Encode a simple error
 pub fn simple_error(str: String) -> BytesBuilder {
   string_builder.from_strings(["-", str, terminator])
+  |> bytes_builder.from_string_builder
+}
+
+/// Encode an integer
+pub fn integer(i: Int) -> BytesBuilder {
+  string_builder.from_strings([":", int.to_string(i), terminator])
   |> bytes_builder.from_string_builder
 }
