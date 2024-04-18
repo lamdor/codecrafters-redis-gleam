@@ -98,3 +98,9 @@ pub fn bulk_string(str: String) -> BytesBuilder {
   ])
   |> bytes_builder.from_string_builder
 }
+
+/// Encode a simple error
+pub fn simple_error(str: String) -> BytesBuilder {
+  string_builder.from_strings(["-", str, terminator])
+  |> bytes_builder.from_string_builder
+}

@@ -11,6 +11,14 @@ pub fn simple_string_test() {
   let assert Ok(resp.SimpleString("OK")) = resp.decode(bits)
 }
 
+pub fn simple_error_test() {
+  let bits =
+    resp.simple_error("owwww. something is wrong")
+    |> bytes_builder.to_bit_array
+
+  let assert <<"-owwww. something is wrong\r\n":utf8>> = bits
+}
+
 pub fn bulk_string_test() {
   let bits =
     resp.bulk_string("hello")
