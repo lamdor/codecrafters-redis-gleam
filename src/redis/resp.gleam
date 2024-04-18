@@ -62,11 +62,18 @@ fn read_loop_until_terminator(
   at: Int,
   read: BitArray,
 ) -> Result(#(BitArray, Int), Nil) {
-  use next <- result.try(bit_array.slice(from: bits, at: at, take: 1))
-  use nexttwo <- result.try(bit_array.slice(from: bits, at: at, take: 2))
-  case nexttwo {
-    <<"\r\n":utf8>> -> Ok(#(read, at + 2))
-    _ -> read_loop_until_terminator(bits, at + 1, bit_array.append(read, next))
+  // do not use `use` syntax as then it's not tail recursive
+  let maybe_next = bit_array.slice(from: bits, at: at, take: 1)
+  let maybe_nexttwo = bit_array.slice(from: bits, at: at, take: 2)
+  case maybe_nexttwo {
+    Ok(<<"\r\n":utf8>>) -> Ok(#(read, at + 2))
+    Error(_) -> Error(Nil)
+    _ ->
+      case maybe_next {
+        Error(_) -> Error(Nil)
+        Ok(next) ->
+          read_loop_until_terminator(bits, at + 1, bit_array.append(read, next))
+      }
   }
 }
 
