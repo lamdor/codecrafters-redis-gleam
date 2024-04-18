@@ -1,7 +1,9 @@
 import gleam/bit_array
 import gleam/bytes_builder.{type BytesBuilder}
-import gleam/string_builder
+import gleam/int
 import gleam/result
+import gleam/string
+import gleam/string_builder
 
 const terminator = "\r\n"
 
@@ -19,19 +21,53 @@ pub fn decode(bits: BitArray) -> Result(Resp, Nil) {
   use first_char <- result.try(bit_array.slice(from: bits, at: 0, take: 1))
   case first_char {
     <<"+":utf8>> -> decode_simple_string(bits)
+    <<"$":utf8>> -> decode_bulk_string(bits)
     _ -> Error(Nil)
   }
 }
 
 fn decode_simple_string(bits: BitArray) -> Result(Resp, Nil) {
-  let length = bit_array.byte_size(bits)
-  use rest_wo_terminator <- result.try(bit_array.slice(
-    from: bits,
-    at: 1,
-    take: length - 3,
+  use #(rest, _) <- result.try(read_until_terminator(bits, 1))
+  use str <- result.map(bit_array.to_string(rest))
+  SimpleString(str)
+}
+
+fn decode_bulk_string(bits: BitArray) -> Result(Resp, Nil) {
+  use #(str_length_as_bits, pos) <- result.try(read_until_terminator(bits, 1))
+  use #(str, _) <- result.try(read_until_terminator(bits, pos))
+  use str <- result.try(bit_array.to_string(str))
+
+  use str_length <- result.try(result.try(
+    bit_array.to_string(str_length_as_bits),
+    int.parse,
   ))
-  use string <- result.map(bit_array.to_string(rest_wo_terminator))
-  SimpleString(string)
+
+  case string.length(str) == str_length {
+    True -> Ok(BulkString(str))
+    False -> Error(Nil)
+  }
+}
+
+/// reads the bits start at "at" until it gets to the terminator
+/// returns those bits and the new position after the terminator
+fn read_until_terminator(
+  from bits: BitArray,
+  at at: Int,
+) -> Result(#(BitArray, Int), Nil) {
+  read_loop_until_terminator(bits, at, <<>>)
+}
+
+fn read_loop_until_terminator(
+  bits: BitArray,
+  at: Int,
+  read: BitArray,
+) -> Result(#(BitArray, Int), Nil) {
+  use next <- result.try(bit_array.slice(from: bits, at: at, take: 1))
+  use nexttwo <- result.try(bit_array.slice(from: bits, at: at, take: 2))
+  case nexttwo {
+    <<"\r\n":utf8>> -> Ok(#(read, at + 2))
+    _ -> read_loop_until_terminator(bits, at + 1, bit_array.append(read, next))
+  }
 }
 
 /// Encode a simple string
@@ -39,5 +75,19 @@ fn decode_simple_string(bits: BitArray) -> Result(Resp, Nil) {
 /// 
 pub fn simple_string(str: String) -> BytesBuilder {
   string_builder.from_strings(["+", str, terminator])
+  |> bytes_builder.from_string_builder
+}
+
+/// Encode a string into a bulk string
+/// A bulk string represents a single binary string. The string can be of any size, but by default, Redis limits it to 512 MB (see the proto-max-bulk-len configuration directive).
+pub fn bulk_string(str: String) -> BytesBuilder {
+  string_builder.from_strings([
+    "$",
+    string.length(str)
+      |> int.to_string,
+    terminator,
+    str,
+    terminator,
+  ])
   |> bytes_builder.from_string_builder
 }

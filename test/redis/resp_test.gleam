@@ -2,15 +2,28 @@ import redis/resp
 import gleam/bytes_builder
 
 pub fn simple_string_test() {
-  let assert <<"+PONG\r\n":utf8>> =
-    resp.simple_string("PONG")
+  let bits =
+    resp.simple_string("OK")
     |> bytes_builder.to_bit_array
+
+  let assert <<"+OK\r\n":utf8>> = bits
+
+  let assert Ok(resp.SimpleString("OK")) = resp.decode(bits)
 }
 
-pub fn decode_simple_string_test() {
+pub fn bulk_string_test() {
   let bits =
-    resp.simple_string("hello")
+    resp.bulk_string("hello")
     |> bytes_builder.to_bit_array
 
-  let assert Ok(resp.SimpleString("hello")) = resp.decode(bits)
+  let assert <<"$5\r\nhello\r\n":utf8>> = bits
+
+  let assert Ok(resp.BulkString("hello")) = resp.decode(bits)
+
+  // given length doesn't match
+  let assert Error(Nil) = resp.decode(<<"$3\r\nhello\r\n":utf8>>)
+  let assert Error(Nil) = resp.decode(<<"$5\r\nhel\r\n":utf8>>)
+  // no terminator
+  let assert Error(Nil) = resp.decode(<<"$5hello\r\n":utf8>>)
+  let assert Error(Nil) = resp.decode(<<"$5\r\nhello":utf8>>)
 }
