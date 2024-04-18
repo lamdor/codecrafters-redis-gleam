@@ -140,14 +140,14 @@ fn read_until_terminator_loop(
 /// Encode a simple string
 /// Simple strings are encoded as a plus (+) character, followed by a string. The string mustn't contain a CR (\r) or LF (\n) character and is terminated by CRLF (i.e., \r\n).
 /// 
-pub fn simple_string(str: String) -> BytesBuilder {
+pub fn simple_string_bytes(str: String) -> BytesBuilder {
   string_builder.from_strings(["+", str, terminator_str])
   |> bytes_builder.from_string_builder
 }
 
 /// Encode a string into a bulk string
 /// A bulk string represents a single binary string. The string can be of any size, but by default, Redis limits it to 512 MB (see the proto-max-bulk-len configuration directive).
-pub fn bulk_string(str: String) -> BytesBuilder {
+pub fn bulk_string_bytes(str: String) -> BytesBuilder {
   string_builder.from_strings([
     "$",
     string.length(str)
@@ -159,24 +159,24 @@ pub fn bulk_string(str: String) -> BytesBuilder {
   |> bytes_builder.from_string_builder
 }
 
-pub fn null() -> BytesBuilder {
+pub fn null_bytes() -> BytesBuilder {
   bytes_builder.from_string("$-1\r\n")
 }
 
 /// Encode a simple error
-pub fn simple_error(str: String) -> BytesBuilder {
+pub fn simple_error_bytes(str: String) -> BytesBuilder {
   string_builder.from_strings(["-", str, terminator_str])
   |> bytes_builder.from_string_builder
 }
 
 /// Encode an integer
-pub fn integer(i: Int) -> BytesBuilder {
+pub fn integer_bytes(i: Int) -> BytesBuilder {
   string_builder.from_strings([":", int.to_string(i), terminator_str])
   |> bytes_builder.from_string_builder
 }
 
 /// Encode an array
-pub fn array(l: List(BytesBuilder)) -> BytesBuilder {
+pub fn array_bytes(l: List(BytesBuilder)) -> BytesBuilder {
   let number_of_elements = list.length(l)
 
   let list_header =
@@ -189,4 +189,20 @@ pub fn array(l: List(BytesBuilder)) -> BytesBuilder {
 
   [list_header, ..l]
   |> bytes_builder.concat
+}
+
+pub fn to_string_list(l: List(Resp)) -> Result(List(String), Nil) {
+  result.map(to_string_list_loop(l, []), list.reverse)
+}
+
+fn to_string_list_loop(
+  l: List(Resp),
+  accum: List(String),
+) -> Result(List(String), Nil) {
+  case l {
+    [] -> Ok(accum)
+    [BulkString(str), ..l] -> to_string_list_loop(l, [str, ..accum])
+    [SimpleString(str), ..l] -> to_string_list_loop(l, [str, ..accum])
+    _ -> Error(Nil)
+  }
 }
