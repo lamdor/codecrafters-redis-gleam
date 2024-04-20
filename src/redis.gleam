@@ -76,7 +76,7 @@ fn handle_get(cmd: commands.Command, database) {
   process.receive(reply, 1000)
   |> result.try(fn(val) {
     case val {
-      database.Value(val) -> option.to_result(val, Nil)
+      database.ValueReply(val) -> option.to_result(val, Nil)
     }
   })
   |> result.map(resp.bulk_string_bytes)
