@@ -33,8 +33,8 @@ fn handler(msg: glisten.Message(a), state: State, conn: glisten.Connection(a)) {
         case cmd {
           commands.Ping -> handle_ping()
           commands.Echo(str) -> handle_echo(str)
-          commands.Set(key, value) -> handle_set(key, value, state.database)
-          commands.Get(key) -> handle_get(key, state.database)
+          commands.Set(..) -> handle_set(cmd, state.database)
+          commands.Get(..) -> handle_get(cmd, state.database)
         }
       }
       result.unwrap(handled_cmd, resp.simple_error_bytes("ERR unknown command"))
@@ -56,23 +56,22 @@ fn handle_echo(str: String) -> BytesBuilder {
 }
 
 fn handle_set(
-  key: String,
-  value: String,
+  cmd: commands.Command,
   database: process.Subject(database.Message),
 ) -> BytesBuilder {
   let reply = process.new_subject()
 
-  process.send(database, database.Set(key, value, reply))
+  process.send(database, database.Set(cmd, reply))
 
   process.receive(reply, 1000)
   |> result.replace(resp.simple_string_bytes("OK"))
   |> result.unwrap(resp.simple_error_bytes("ERR did not save"))
 }
 
-fn handle_get(key: String, database) {
+fn handle_get(cmd: commands.Command, database) {
   let reply = process.new_subject()
 
-  process.send(database, database.Get(key, reply))
+  process.send(database, database.Get(cmd, reply))
 
   process.receive(reply, 1000)
   |> result.try(fn(val) {

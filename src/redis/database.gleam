@@ -2,10 +2,11 @@ import gleam/erlang/process.{type Subject}
 import gleam/otp/actor
 import gleam/dict.{type Dict}
 import gleam/option.{type Option}
+import redis/commands
 
 pub type Message {
-  Set(key: String, value: String, reply: Subject(Acknowledged))
-  Get(key: String, reply: Subject(Value))
+  Set(cmd: commands.Command, reply: Subject(Acknowledged))
+  Get(cmd: commands.Command, reply: Subject(Value))
 }
 
 pub type Acknowledged {
@@ -21,12 +22,12 @@ type State =
 
 fn loop(msg: Message, db: State) -> actor.Next(Message, State) {
   case msg {
-    Set(k, v, r) -> {
+    Set(commands.Set(k, v, _), r) -> {
       let db = dict.insert(db, k, v)
       process.send(r, Acknowledged)
       actor.continue(db)
     }
-    Get(k, r) -> {
+    Get(commands.Get(k), r) -> {
       let v =
         dict.get(db, k)
         |> option.from_result
@@ -34,6 +35,9 @@ fn loop(msg: Message, db: State) -> actor.Next(Message, State) {
       process.send(r, v)
       actor.continue(db)
     }
+    _ ->
+      // should it crash? or just ignore invalid commands
+      actor.continue(db)
   }
 }
 
